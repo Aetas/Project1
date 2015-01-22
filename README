@@ -1,0 +1,6 @@
+First project for CSCI 2270
+Craigs-List-like sorting algorithm
+
+uses dynamically created structs to store items in an array, compares them to others, and sells it if there is a match.
+
+Could use a make file as well.
