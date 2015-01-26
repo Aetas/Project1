@@ -3,13 +3,8 @@
 // 18/1/15												//
 // An exercise in ancient c++							//
 // Craigslist-like sorting dealio						//
+// CSCI 2270											//
 // **************************************************** //
-
-/*
-Not terribly thrilled with how rigid the code is, but with flexibility comes weight it would seem.
-It would have been possible to prune and modify strings until any 3-sequence input would output formatted data
-but that would have added many operations every pass.
-*/
 
 #include<iostream>	//std i/o
 #include<cstdlib>	//std lib
@@ -23,7 +18,7 @@ using std::cin;
 using std::endl;
 using std::string;
 
-const size_t control = 100;	//just to change and limit the array in one place
+const size_t control = 100;	//just to change and limit the array in one place for development
 
 int counter = 0;		//operation tracker
 int made = 0;			//# of items created, global to skip passing to every argument, used as bookkeeping for delete as well as index
@@ -40,9 +35,12 @@ void sortingHat(item *item_ptr[], std::ifstream &ifile);//big batch function. so
 void del_items(item *item_ptr[]);						//memory management to prevent mem leaks
 void determine_need(item *item_ptr[], string &buffer);	//parses forsale/want into bool true/false
 void check(item *item_ptr[]);							//checks for need and availability before committing to array and rebuffering
-void swap(item *item_ptr[], int &del_i);				//removes sold items and places new one in old slot
+//void swap(item *item_ptr[], int &del_i);				//removes sold items and places new one in old slot
+void shift(item *item_ptr[], int del_i);							//ahift array down instead of swap
 void print_sale(item *item_ptr[]);						//it was just easier to split the function, it's not very different all-in-all
 void print_want(item *item_ptr[]);						//print wanted --> end functions
+
+void printArray(item *item_ptr[]);
 
 
 int main()
@@ -51,9 +49,9 @@ int main()
 	string file_name;		//user pointing to the file by name
 	std::ifstream ifile;	//functional ifstream file
 
-	fetchFileName(file_name);	//get file name
-	ifile.open(file_name.c_str(), std::ifstream::in);		//open file, '.c_str()' because of lack of -std=c++11x or c++0x
-//	ifile.open("messageBoard.txt", std::ifstream::in); //for testing purposes
+	//	fetchFileName(file_name);	//get file name
+	//	ifile.open(file_name.c_str(), std::ifstream::in);		//open file, '.c_str()' because of lack of -std=c++11x or c++0x
+	ifile.open("messageBoard.txt", std::ifstream::in); //for testing purposes
 	if (ifile.is_open())	//check
 	{
 		sortingHat(item_ptr, ifile);	//start main process
@@ -75,6 +73,8 @@ int main()
 	print_sale(item_ptr);	//print items still for sale
 	print_want(item_ptr);	//print items still wanted
 
+	//	printArray(item_ptr);	//testing
+
 	cout << "operations:" << counter << endl;
 
 	del_items(item_ptr);	//delete array structs before closure
@@ -87,7 +87,7 @@ void fetchFileName(string &file_name)
 {
 	cout << "\n File name:\n <name>.txt:";
 	getline(cin, file_name);
-	file_name.append(".txt");	//just to amke sure it can find the .txt extension. It is not worth it to write a series of loops to check for files. probably.
+	file_name.append(".txt");	//just to make sure it can find the .txt extension. It is not worth it to write a series of loops to check for files. probably.
 }
 
 void sortingHat(item *item_ptr[], std::ifstream &ifile)
@@ -105,7 +105,7 @@ void sortingHat(item *item_ptr[], std::ifstream &ifile)
 		getline(ssmcbuff, buffer, ',');	//transfer type
 		item_ptr[made]->type = buffer;	//set type
 
-		getline(ssmcbuff, buffer, ','); //transfer sale_want
+		getline(ssmcbuff, buffer, ',');			//transfer sale_want
 		determine_need(item_ptr, buffer);		//translate sell/want to bool
 
 		getline(ssmcbuff, buffer);				//transfer price
@@ -117,18 +117,14 @@ void sortingHat(item *item_ptr[], std::ifstream &ifile)
 		//cout << item_ptr[made]->type << " " << item_ptr[made]->sale_want << " " << item_ptr[made]->price << endl;
 
 		ssmcbuff.clear();	//clear for next pass
-		counter++;
-
 		made++;
-		counter++;
 		//cout << made << endl;
 	}
 }
 
 void determine_need(item *item_ptr[], string &buffer)
 {
-	counter++;
-	if (buffer == "forsale")
+	if (buffer.compare("forsale") == 0) // == "forsale")
 		item_ptr[made]->sale_want = true;
 	else
 		item_ptr[made]->sale_want = false;
@@ -139,66 +135,97 @@ void check(item *item_ptr[])
 	counter++;	//board search function
 	for (int i = 0; i < made; i++)	//start at the beginning of the array
 	{
-		if (item_ptr[made]->type == item_ptr[i]->type)	//start with most specific, check if same
+		counter++;
+		if (item_ptr[made]->type.compare(item_ptr[i]->type) == 0)	//start with most specific, check if same (0 is compare equal)
 		{
-			if (item_ptr[made]->sale_want != item_ptr[i]->sale_want)	//if so, move on to check if it is for sale/wanted
+			counter++;
+			if (item_ptr[made]->sale_want != item_ptr[i]->sale_want)	//if so, move on to check if it is a sale/want match
 			{
+				counter++;
 				if (item_ptr[made]->sale_want == false)	//check to see if new listing is a buyer or seller. false = buyer
 				{
+					counter++;
 					if (item_ptr[made]->price >= item_ptr[i]->price)	//if newest is buyer
 					{
+						counter++;
 						cout << item_ptr[i]->type << " " << item_ptr[i]->price << endl;	//SOLD to newer listing at want/seller price
-						swap(item_ptr, i);	//'i' will always be the deeper listing
+						//swap(item_ptr, i);	//'i' will always be the deeper listing
+						shift(item_ptr, i);
+						break;
 					}
 				}
-				else if (item_ptr[i]->price >= item_ptr[made]->price)	//else newest is a seller, query price
+				else if (item_ptr[made]->sale_want == true)	//if they are selling...
 				{
-					cout << item_ptr[made]->type << " " << item_ptr[made]->price << endl;	//SOLD to older listing at want/seller price
-					swap(item_ptr, i);	//'i' will always be the deeper listing
-				}//with both buy/sell if's above, they share the same type, but not necessarily price so the second cout is significant not the first
+					counter++;
+					if (item_ptr[made]->price <= item_ptr[i]->price)	//check if seller wants equal or less than the buyers price
+					{
+						counter++;
+						cout << item_ptr[made]->type << " " << item_ptr[made]->price << endl;	//SOLD to older listing at want/seller price
+						//swap(item_ptr, i);	//'i' will always be the deeper listing
+						shift(item_ptr, i);
+						break;
+					}//with both buy/sell if's above, they share the same type, but not necessarily price so the second cout is significant not the first
+				}
 			}
 		}
 	}
 }
 
- void swap(item *item_ptr[], int &del_i)	//swap now empty with would-be new listing
- {
-	 item_ptr[del_i]->type = item_ptr[made]->type;				//exchange type
-	 item_ptr[del_i]->price = item_ptr[made]->price;			//exchange price
-	 item_ptr[del_i]->sale_want = item_ptr[made]->sale_want;	//exchange sale_want
+void swap(item *item_ptr[], int &del_i)	//swap now empty with would-be new listing
+{
+	item_ptr[del_i]->type = item_ptr[made]->type;				//exchange type
+	item_ptr[del_i]->price = item_ptr[made]->price;			//exchange price
+	item_ptr[del_i]->sale_want = item_ptr[made]->sale_want;	//exchange sale_want
 
-	 counter += 3;
+	delete item_ptr[made];	    //delete the latest addition, allowing it to be created again without mem leak
+	//	 item_ptr[made] = nullptr;  //not sure if this is actually necessary since it will be used again in a moment
+	//just kidding, it's a mofo c++11x term.
+	made--;				    //keep current
+}
 
-	 delete item_ptr[made];	    //delete the latest addition, allowing it to be created again without mem leak
-//	 item_ptr[made] = nullptr;  //not sure if this is actually necessary since it will be used again in a moment
-                                    //just kidding, it's a mofo c++11x term.
-	 made--;				    //keep current
+void shift(item *item_ptr[], int del_i)	//shift down one on the sold listing
+{
+	for (int i = del_i; i < made; i++)	//for loop starting at sold and limited on made
+	{
+		counter++;
+		item_ptr[i]->type = item_ptr[i + 1]->type;				//transfer values from one up
+		item_ptr[i]->sale_want = item_ptr[i + 1]->sale_want;
+		item_ptr[i]->price = item_ptr[i + 1]->price;
+	}
+	delete item_ptr[made];	//delete top as it will be remade in the beginning of the next loop
+	made--;				//update conditions
+}
 
-	 counter++;
- }
+void print_sale(item *item_ptr[])	//print the items still up for sale
+{
+	for (int i = 0; i < made; i++)	//limited on the total number made
+	{
+		if (item_ptr[i]->sale_want == true)	//if it is indeed for sale
+			cout << item_ptr[i]->type << ", " << "for sale" << ", " << item_ptr[i]->price << endl;
+	}
+}
 
- void print_sale(item *item_ptr[])	//print the items still up for sale
- {
-	 for (int i = 0; i < made; i++)	//limited on the total number made to reduce the cycles
-	 {
-		 if (item_ptr[i]->sale_want == true)	//if it is indeed for sale
-			 cout << item_ptr[i]->type << ", " << "for sale" << ", " << item_ptr[i]->price << endl;
-	 }
- }
-
- void print_want(item *item_ptr[])	//print the items still up for sale
- {
-	 for (int i = 0; i < made; i++)
-	 {
-		 if (item_ptr[i]->sale_want == false)
-			 cout << item_ptr[i]->type << ", " << "wanted" << ", " << item_ptr[i]->price << endl;
-	 }
- }
+void print_want(item *item_ptr[])	//print the items still up for sale
+{
+	for (int i = 0; i < made; i++)
+	{
+		if (item_ptr[i]->sale_want == false)
+			cout << item_ptr[i]->type << ", " << "wanted" << ", " << item_ptr[i]->price << endl;
+	}
+}
 
 void del_items(item *item_ptr[])	//mem leak management
 {
 	for (int i = 0; i < made; i++)
 	{
 		delete item_ptr[i];
+	}
+}
+
+void printArray(item *item_ptr[])
+{
+	for (int i = 0; i < made; i++)
+	{
+		cout << "\n " << item_ptr[i]->type << ", " << item_ptr[i]->sale_want << ", " << item_ptr[i]->price;
 	}
 }
